@@ -1,0 +1,82 @@
+#include "SD.h"
+#include "DHT.h"
+#include <Wire.h> // Library for I2C communication
+#include <SPI.h>  // not used here, but needed to prevent a RTClib compile error
+#include "RTClib.h"
+
+
+#define DHTPIN 3   // used for ESP8266
+#define DHTYPE DHT22
+
+
+const int chipSelect = D8;  // used for ESP8266
+
+DHT dht(DHTPIN, DHTYPE);
+RTC_DS1307 RTC;  
+
+void setup() {
+  Serial.begin(9600);
+  
+  while (!Serial) {
+  }
+
+  Wire.begin(); // Start the I2C
+  RTC.begin();  // Init RTC
+  RTC.adjust(DateTime(__DATE__, __TIME__));  // Time and date is expanded to date and time on your computer at compiletime
+  delay(2000);
+  Serial.print('Time and date set');
+  delay(1000);
+
+//  if (!rtc.isrunning()) {
+//    Serial.println("RTC lost power, lets set the time!");
+//    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+//  }
+
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Initialization failed!");
+    while (1);
+  }
+
+  dht.begin();
+
+}
+
+void loop() {
+  
+  String dataString = "";
+  String timestmp = "";
+  
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  DateTime now = RTC.now();
+  timestmp = String(now.year()) += String(now.month()) += String(now.day());
+  Serial.println("manueller string:....");
+  Serial.println(timestmp);
+  Serial.print(now.year(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.day(), DEC);
+  Serial.print(" (");
+//  dataString += String(now.unixtime());
+//  dataString += ",";
+  dataString += String(now.timestamp());
+  dataString += ",";
+  dataString += String(h);
+  dataString += ",";
+  dataString += String(t);
+  
+  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+
+  if (dataFile) {
+    dataFile.println(dataString);
+    dataFile.close();
+    Serial.println(dataString);
+  }
+  
+  else {
+    Serial.println("error opening datalog.txt");
+  }
+
+  delay(2000);
+}
